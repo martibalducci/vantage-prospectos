@@ -25,6 +25,7 @@ export default async function handler(req, res) {
   });
 
   const data = await response.json();
-  const leads = JSON.parse(data.content[0].text);
+  const text = data.content[0].text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+  const leads = JSON.parse(text);
   res.status(200).json({ leads });
 }
