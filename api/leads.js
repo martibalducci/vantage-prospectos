@@ -28,9 +28,10 @@ export default async function handler(req, res) {
   const text = data.content[0].text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
   const leads = JSON.parse(text);
 
-  await fetch('https://script.google.com/macros/s/AKfycbxwSPv1xzR_uganOiaHqVj3TYaaDsotbZz-Mveb-58Pgd4Wop-urQ0P6Yh3nqd-1brN9w/exec', {
+await fetch('https://script.google.com/macros/s/AKfycbxwSPv1xzR_uganOiaHqVj3TYaaDsotbZz-Mveb-58Pgd4Wop-urQ0P6Yh3nqd-1brN9w/exec', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    redirect: 'follow',
+    headers: { 'Content-Type': 'text/plain' },
     body: JSON.stringify({
       sheetId: '1V6SYNosU95M8I7L85WJYwlCmnpyAy5nQvFZoZvCcvoI',
       leads
