@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VANTAGE — Prospectos</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#0a0a0a; color:#e8e8e8; font-family: monospace; min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:40px 20px; }
+.logo { font-size:24px; font-weight:900; letter-spacing:0.15em; color:#c8ff00; margin-bottom:4px; }
+.sub { font-size:11px; color:#555; letter-spacing:0.2em; text-transform:uppercase; margin-bottom:40px; }
+.form { width:100%; max-width:600px; }
+label { font-size:10px; letter-spacing:0.2em; text-transform:uppercase; color:#555; display:block; margin-bottom:6px; }
+input { background:#111; border:1px solid #1e1e1e; color:#e8e8e8; font-family:monospace; font-size:14px; padding:12px 16px; width:100%; outline:none; margin-bottom:10px; }
+input:focus { border-color:#c8ff00; }
+.row { display:grid; grid-template-columns:1fr 120px; gap:10px; }
+button { background:#c8ff00; color:#000; border:none; font-weight:900; font-size:13px; letter-spacing:0.1em; text-transform:uppercase; padding:14px; cursor:pointer; width:100%; margin-top:4px; }
+button:disabled { background:#1e1e1e; color:#555; cursor:not-allowed; }
+.status { margin-top:12px; padding:10px 14px; border-left:2px solid #333; font-size:12px; color:#555; min-height:40px; }
+.status.err { border-color:#ff4444; color:#ff4444; }
+.status.ok { border-color:#00ff88; color:#00ff88; }
+.results { margin-top:28px; width:100%; max-width:600px; }
+.card { background:#111; border:1px solid #1e1e1e; padding:14px 16px; margin-bottom:8px; }
+.card-name { font-size:14px; font-weight:700; margin-bottom:4px; }
+.card-meta { font-size:11px; color:#555; margin-bottom:8px; display:flex; gap:14px; flex-wrap:wrap; }
+.card-ig { color:#ff6b35; }
+.card-detalle { font-size:12px; color:#666; border-left:2px solid #1e1e1e; padding-left:10px; line-height:1.5; }
+.copy-btn { background:#111; color:#c8ff00; border:1px solid #c8ff00; font-family:monospace; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; padding:10px; cursor:pointer; width:100%; margin-top:8px; }
+.badge { background:#c8ff00; color:#000; font-size:11px; font-weight:900; padding:2px 10px; }
+.results-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+</style>
+</head>
+<body>
+<div class="logo">VANTAGE</div>
+<div class="sub">Generador de Prospectos</div>
+
+<div class="form">
+  <label>Ciudad</label>
+  <input type="text" id="ciudad" placeholder="Madrid, Valencia, Buenos Aires, Ciudad de México..." />
+  <label>Cantidad</label>
+  <div class="row">
+    <input type="number" id="cantidad" value="20" min="1" max="50" />
+    <button id="btn" onclick="generar()">Generar</button>
+  </div>
+  <div class="status" id="status">Ingresá una ciudad y hacé clic en generar.</div>
+</div>
+
+<div class="results" id="results" style="display:none">
+  <div class="results-header">
+    <span style="font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:#555">Prospectos</span>
+    <span class="badge" id="badge">0</span>
+  </div>
+  <div id="cards"></div>
+  <button class="copy-btn" onclick="copiar()">Copiar todo para pegar en el sheet (Ctrl+V)</button>
+</div>
+
+<script>
+let datos = [];
+
+async function generar() {
+  const ciudad = document.getElementById('ciudad').value.trim();
+  const cantidad = parseInt(document.getElementById('cantidad').value) || 20;
+  const btn = document.getElementById('btn');
+
+  if (!ciudad) return setStatus('Ingresá una ciudad.', 'err');
+
+  btn.disabled = true;
+  setStatus('Generando prospectos...');
+
+  try {
+    const res = await fetch('/api/leads', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ciudad, cantidad })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Error del servidor');
+
+    datos = data.leads;
+    mostrarCards(datos);
+    setStatus(`${datos.length} prospectos listos. Usá el botón de abajo para copiar al sheet.`, 'ok');
+
+  } catch(e) {
+    setStatus('Error: ' + e.message, 'err');
+  }
+
+  btn.disabled = false;
+}
+
+function mostrarCards(prospectos) {
+  const cards = document.getElementById('cards');
+  document.getElementById('badge').textContent = prospectos.length;
+  document.getElementById('results').style.display = 'block';
+  cards.innerHTML = '';
+  prospectos.forEach(p => {
+    const d = document.createElement('div');
+    d.className = 'card';
+    d.innerHTML = `
+      <div class="card-name">${p.nombre_negocio}</div>
+      <div class="card-meta">
+        <span>${p.barrio}, ${p.ciudad}</span>
+        ${p.nombre_dueno ? `<span>${p.nombre_dueno}</span>` : ''}
+        ${p.link_instagram ? `<span class="card-ig">${p.link_instagram}</span>` : ''}
+      </div>
+      <div class="card-detalle">${p.detalle_especifico}</div>
+    `;
+    cards.appendChild(d);
+  });
+}
+
+function copiar() {
+  const hoy = new Date().toLocaleDateString('es-AR');
+  const filas = datos.map(p =>
+    [p.nombre_negocio, p.nombre_dueno, p.ciudad, p.barrio, p.link_instagram, p.detalle_especifico, 'pendiente', hoy, ''].join('\t')
+  ).join('\n');
+  navigator.clipboard.writeText(filas).then(() => {
+    setStatus('Copiado. Abrí el sheet, clic en la primera celda vacía y pegá con Ctrl+V.', 'ok');
+  });
+}
+
+function setStatus(msg, type) {
+  const s = document.getElementById('status');
+  s.className = 'status' + (type ? ' ' + type : '');
+  s.textContent = msg;
+}
+</script>
+</body>
+</html>
